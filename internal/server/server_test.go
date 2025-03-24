@@ -9,30 +9,20 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/gophercloud/gophercloud/v2"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/applicationcredentials"
 	"github.com/stanislav-zaprudskiy/secrets-store-csi-driver-provider-openstack/internal/provider"
+	"google.golang.org/protobuf/testing/protocmp"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 )
 
-var (
-	cmpJSONOpts = cmp.Options{
-		cmp.FilterValues(func(x, y []byte) bool {
-			return json.Valid(x) && json.Valid(y)
-		}, cmp.Transformer("ParseJSON", func(in []byte) (out interface{}) {
-			if err := json.Unmarshal(in, &out); err != nil {
-				panic(err) // should never occur given previous filter to ensure valid JSON
-			}
-			return out
-		})),
-	}
-)
-
 type MockedProviderClient struct {
-	MockedCreateApplicationCredential func(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, error)
+	MockedCreateApplicationCredential func(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, *gophercloud.ServiceClient, error)
 }
 
-func (m MockedProviderClient) CreateApplicationCredential(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, error) {
+func (m MockedProviderClient) CreateApplicationCredential(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, *gophercloud.ServiceClient, error) {
 	return m.MockedCreateApplicationCredential(ctx, auth, createOpts)
 }
 
@@ -65,6 +55,7 @@ func TestMount(t *testing.T) {
 		Attributes: func() string {
 			attributes := map[string]string{
 				"applicationCredentials": `- fileName: secure-clouds.yaml
+  template: "qwe"
 `,
 			}
 			data, _ := json.Marshal(attributes)
@@ -94,16 +85,13 @@ func TestMount(t *testing.T) {
 	}
 
 	server := NewServer(MockedProviderClient{
-		MockedCreateApplicationCredential: func(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, error) {
-			return &applicationcredentials.ApplicationCredential{}, nil
+		MockedCreateApplicationCredential: func(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, *gophercloud.ServiceClient, error) {
+			return &applicationcredentials.ApplicationCredential{}, &gophercloud.ServiceClient{}, nil
 		},
 	})
 	gotMountResponse, _ := server.Mount(context.TODO(), mountRequest)
 
-	wantJSON, _ := json.Marshal(wantMountResponse)
-	gotJSON, _ := json.Marshal(gotMountResponse)
-
-	if diff := cmp.Diff(wantJSON, gotJSON, cmpJSONOpts); diff != "" {
+	if diff := cmp.Diff(wantMountResponse, gotMountResponse, protocmp.Transform()); diff != "" {
 		t.Errorf("Mount() mismatch (-want, +got):\n%s", diff)
 	}
 }

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/applicationcredentials"
 	"github.com/stanislav-zaprudskiy/secrets-store-csi-driver-provider-openstack/internal/provider"
 	"sigs.k8s.io/secrets-store-csi-driver/provider/v1alpha1"
 	"sigs.k8s.io/yaml"
@@ -78,18 +77,18 @@ func (s *CSIDriverProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 	mountResponse := &v1alpha1.MountResponse{}
 
 	for _, applicationCredentialObject := range applicationCredentialsObjects {
-		applicationCredential, err := s.ProviderClient.CreateApplicationCredential(ctx, secrets, applicationCredentialObject)
+		applicationCredential, identityClient, err := s.ProviderClient.CreateApplicationCredential(ctx, secrets, applicationCredentialObject)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create application credential %+v, error: %w", applicationCredentialObject, err)
 		}
 
-		contents, err := renderContents(applicationCredentialObject, applicationCredential)
+		contents, err := applicationCredentialObject.Render(applicationCredential, identityClient)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render contents for application credential %+v, error: %w", applicationCredentialObject, err)
 		}
 
 		file := &v1alpha1.File{
-			Contents: []byte(contents),
+			Contents: contents,
 			Path:     applicationCredentialObject.FileName,
 		}
 		mountResponse.Files = append(mountResponse.Files, file)
@@ -102,9 +101,4 @@ func (s *CSIDriverProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 	}
 
 	return mountResponse, nil
-}
-
-func renderContents(applicationCredentialObject *ApplicationCredentialObject, applicationCredential *applicationcredentials.ApplicationCredential) (string, error) {
-	// TODO: real implementation
-	return "qwe", nil
 }
