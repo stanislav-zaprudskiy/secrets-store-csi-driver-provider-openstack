@@ -35,7 +35,7 @@ type ApplicationCredentialObject struct {
 }
 
 func (o ApplicationCredentialObject) ToApplicationCredentialCreateMap() (map[string]any, error) {
-	// TODO: real implementation
+	// Should be processing parameters from embeded ApplicationCredential
 	d := time.Hour * 1
 	expiresAt := time.Now().Add(d).Truncate(time.Millisecond).UTC()
 	description := "Created with love by secrets-store-csi-driver-provider-openstack"

@@ -55,6 +55,7 @@ func TestMount(t *testing.T) {
 		applicationCredentials string
 		filePath               string
 		contents               string
+		objectVersion          *v1alpha1.ObjectVersion
 		server                 *CSIDriverProviderServer
 	}{
 		"applicationCredential with template": {
@@ -62,8 +63,9 @@ func TestMount(t *testing.T) {
 - fileName: secure-clouds.yaml
   template: "qwe"
 `,
-			filePath: "secure-clouds.yaml",
-			contents: "qwe",
+			filePath:      "secure-clouds.yaml",
+			contents:      "qwe",
+			objectVersion: &v1alpha1.ObjectVersion{Version: "v1"},
 			server: NewServer(MockedProviderClient{
 				MockedCreateApplicationCredential: func(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, *gophercloud.ServiceClient, error) {
 					return &applicationcredentials.ApplicationCredential{}, &gophercloud.ServiceClient{}, nil
@@ -83,6 +85,7 @@ func TestMount(t *testing.T) {
       auth_url: ""
     auth_type: "v3applicationcredential"
 `,
+			objectVersion: &v1alpha1.ObjectVersion{Version: "v1"},
 			server: NewServer(MockedProviderClient{
 				MockedCreateApplicationCredential: func(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, *gophercloud.ServiceClient, error) {
 					return &applicationcredentials.ApplicationCredential{}, &gophercloud.ServiceClient{}, nil
@@ -103,9 +106,11 @@ func TestMount(t *testing.T) {
       auth_url: "http://localhost:5000/v3/"
     auth_type: "v3applicationcredential"
 `,
+			objectVersion: &v1alpha1.ObjectVersion{Id: "abcdef1234", Version: "v1"},
 			server: NewServer(MockedProviderClient{
 				MockedCreateApplicationCredential: func(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, *gophercloud.ServiceClient, error) {
 					ac := &applicationcredentials.ApplicationCredential{
+						Name:   "secrets-store-csi-1742382787115467963-cnj2c",
 						ID:     "abcdef1234",
 						Secret: "random-generated-secret",
 					}
@@ -134,6 +139,7 @@ auth_type = v3applicationcredential
 application_credential_id = 6cb5fa6a13184e6fab65ba2108adf50c
 application_credential_secret= glance_secret
 `,
+			objectVersion: &v1alpha1.ObjectVersion{Id: "6cb5fa6a13184e6fab65ba2108adf50c", Version: "v1"},
 			server: NewServer(MockedProviderClient{
 				MockedCreateApplicationCredential: func(ctx context.Context, auth map[string]string, createOpts applicationcredentials.CreateOptsBuilder) (*applicationcredentials.ApplicationCredential, *gophercloud.ServiceClient, error) {
 					ac := &applicationcredentials.ApplicationCredential{
@@ -159,7 +165,6 @@ application_credential_secret= glance_secret
 					data, _ := json.Marshal(attributes)
 					return string(data)
 				}(),
-				// TODO: consume secrets
 				Secrets:    "{}",
 				TargetPath: "/openstack-auth",
 				Permission: "640",
@@ -167,13 +172,7 @@ application_credential_secret= glance_secret
 			}
 
 			wantMountResponse := &v1alpha1.MountResponse{
-				ObjectVersion: []*v1alpha1.ObjectVersion{
-					{
-						// TODO: populate ObjectVersion
-						Id:      "",
-						Version: "",
-					},
-				},
+				ObjectVersion: []*v1alpha1.ObjectVersion{test.objectVersion},
 				Files: []*v1alpha1.File{
 					{
 						Path:     test.filePath,

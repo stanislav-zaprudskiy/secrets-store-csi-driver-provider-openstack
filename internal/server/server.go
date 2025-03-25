@@ -35,26 +35,34 @@ func (s *CSIDriverProviderServer) Version(ctx context.Context, req *v1alpha1.Ver
 }
 
 func (s *CSIDriverProviderServer) Mount(ctx context.Context, req *v1alpha1.MountRequest) (*v1alpha1.MountResponse, error) {
-	var mountDir string
 	var attributes, secrets map[string]string
 	var filePermission os.FileMode
 	var err error
 
-	if mountDir = req.GetTargetPath(); mountDir == "" {
+	if req.GetTargetPath() == "" {
 		return nil, fmt.Errorf("request should have a target mount path")
 	}
 
 	// attributes correspond to SecretProviderClass.spec.attributes
+	if req.GetAttributes() == "" {
+		return nil, fmt.Errorf("parameters provided in SecretProviderClass should not be empty")
+	}
 	if err = json.Unmarshal([]byte(req.GetAttributes()), &attributes); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal attributes, error: %w", err)
 	}
+	if attributes == nil {
+		return nil, fmt.Errorf("attributes should not be nil")
+	}
 
 	// secrets is the Secret content referenced in nodePublishSecretRef Secret data
+	if req.GetSecrets() == "" {
+		return nil, fmt.Errorf("secrets should be provided via volume.csi.nodePublishSecretRef.name")
+	}
 	if err = json.Unmarshal([]byte(req.GetSecrets()), &secrets); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal nodePublishSecretRef secrets, error: %w", err)
 	}
 	if secrets == nil {
-		return nil, fmt.Errorf("secrets should be provided via volume.csi.nodePublishSecretRef.name")
+		return nil, fmt.Errorf("secrets should not be nil")
 	}
 
 	if err = json.Unmarshal([]byte(req.GetPermission()), &filePermission); err != nil {
@@ -94,8 +102,10 @@ func (s *CSIDriverProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 		mountResponse.Files = append(mountResponse.Files, file)
 
 		objectVersion := &v1alpha1.ObjectVersion{
-			Id:      "",
-			Version: "",
+			Id: applicationCredential.ID,
+			// not clear which attribute of AC to use as version, so just user some fixed
+			// value all the time
+			Version: "v1",
 		}
 		mountResponse.ObjectVersion = append(mountResponse.ObjectVersion, objectVersion)
 	}
