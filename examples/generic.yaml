@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: 2025 Stanislav Zaprudskiy <stanislav.zaprudskiy@gmail.com>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: my-spc-configuration
+spec:
+  # provider id
+  provider: custom-provider
+  # provider-specific parameters
+  # map[string]string
+  parameters:
+    # roleName: "csi"
+    # vaultAddress: "http://vault.vault:8200"
+    # objects: |
+    #   - secretPath: "secret/data/foo"
+    #     objectName: "bar"
+    #     secretKey: "bar"
+    #   - secretPath: "secret/data/foo1"
+    #     objectName: "bar1"
+    #     secretKey: "bar1"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-spc-configuration-secret
+stringData:
+  foo: bar
+  baz: QUX
+
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: secrets-store-inline
+spec:
+  containers:
+  - image: busybox
+    name: busybox
+    imagePullPolicy: IfNotPresent
+    command:
+    - "/bin/sleep"
+    - "10000"
+    volumeMounts:
+    - name: secrets-store-inline
+      mountPath: "/mnt/secrets-store"
+      readOnly: true
+  volumes:
+  - name: secrets-store-inline
+    # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#csivolumesource-v1-core
+    csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        # SecretProviderClass ref
+        secretProviderClass: "my-spc-configuration"
+      nodePublishSecretRef:
+        # > nodePublishSecretRef is a reference to the secret object
+        # > containing sensitive information to pass to the CSI driver to
+        # > complete the CSI NodePublishVolume and NodeUnpublishVolume calls.
+        # > This field is optional, and may be empty if no secret is required.
+        # > If the secret object contains more than one secret, all secret
+        # > references are passed.
+        name: my-spc-configuration-secret
+
+############################
+# schema of various provders
+############################
+    # roleName: "csi"
+    # vaultAddress: "http://vault.vault:8200"
+    # objects: |
+    #   - secretPath: "secret/data/foo"
+    #     objectName: "bar"
+    #     secretKey: "bar"
+
+    # akeylessGatewayURL: "https://api.akeyless.io"
+    # akeylessAccessID: "p-04gxpbul60iu"
+    # objects: |
+    #   - secretPath: "/akeyless-csi-secret/foo"
+    #     fileName: "bar"
+
+    # objects: |
+    #   - objectName: $PM_TEST_LONG_NAME
+    #     objectAlias: ParameterStoreTest2
+    #     objectType: ssmparameter
+    #   - objectName: $SM_TEST_1_NAME
+    #     objectType: secretsmanager
+
+    # clientID: "$IDENTITY_CLIENT_ID"
+    # keyvaultName: "$KEYVAULT_NAME" # the name of the KeyVault
+    # objects: |
+    #   array:
+    #     - |
+    #       objectName: $SECRET_NAME
+    #       objectType: secret        # object types: secret, key or cert
+    #       objectVersion: $SECRET_VERSION         # [OPTIONAL] object versions, default to latest if empty
+    # tenantId: "$AZURE_TENANT_ID" # the tenant ID of the KeyVault
+
+    # account: default
+    # applianceUrl: https://conjur-conjur-oss.conjur.svc.cluster.local
+    # authnId: authn-jwt/kube
+    # identity: host/workload-host
+    # secrets: |
+    #   - "relative/path/username": "db-credentials/username"
+    #   - "relative/path/password": "db-credentials/password"
+    # sslCertificate: $CONJUR_SSL_CERT
+
+    # auth: provider-adc
+    # secrets: |
+    #   - resourceName: $RESOURCE_NAME
+    #     fileName: $FILE_NAME

@@ -28,6 +28,8 @@ var (
 )
 
 func main() {
+	flag.Parse()
+
 	endpoint := fmt.Sprintf("%s/openstack.sock", *volumePath)
 	_ = os.Remove(endpoint)
 	grpcSrv := grpc.NewServer()
@@ -45,11 +47,8 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	defer func() {
-		err := listener.Close()
-		if err != nil {
-			slog.Error(err.Error())
-		}
-		_ = os.Remove(endpoint)
+		listener.Close()
+		os.Remove(endpoint)
 	}()
 	slog.Info("Listening for connections", "address", listener.Addr())
 

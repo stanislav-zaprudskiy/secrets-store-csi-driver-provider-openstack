@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2025 Stanislav Zaprudskiy <stanislav.zaprudskiy@gmail.com>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+FROM golang:1.24-alpine
+
+ENV CGO_ENABLED=0
+
+RUN apk update && apk add --no-cache \
+    git && \
+    go install github.com/go-delve/delve/cmd/dlv@latest
+
+WORKDIR /source
+
+COPY go.mod go.mod
+RUN go mod download
+
+EXPOSE 30123
+
+ENTRYPOINT [ "dlv", \
+  "debug", \
+  "--headless", \
+  "--listen=:30123", \
+  "--accept-multiclient", \
+  "--api-version=2" ]

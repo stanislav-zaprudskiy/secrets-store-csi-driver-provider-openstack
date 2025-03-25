@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2025 Stanislav Zaprudskiy <stanislav.zaprudskiy@gmail.com>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: v2
+name: demo-app
+description: A Helm chart for Kubernetes
+version: 0.0.1

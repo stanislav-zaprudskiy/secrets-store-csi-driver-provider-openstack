@@ -1,0 +1,126 @@
+# SPDX-FileCopyrightText: 2025 Stanislav Zaprudskiy <stanislav.zaprudskiy@gmail.com>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: driver-source-pv
+spec:
+  storageClassName: hostpath
+  capacity:
+    storage: 256Mi
+  accessModes:
+  - ReadWriteOnce
+  hostPath:
+    path: /source
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: driver-source-pvc
+spec:
+  storageClassName: hostpath
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 256Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secrets-store-csi-driver-provider-openstack
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: secrets-store-csi-driver-provider-openstack-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["serviceaccounts/token"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: secrets-store-csi-driver-provider-openstack-cluster-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: secrets-store-csi-driver-provider-openstack-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: secrets-store-csi-driver-provider-openstack
+  namespace: default
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: secrets-store-csi-driver-provider-openstack
+  labels:
+    app: secrets-store-csi-driver-provider-openstack
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: secrets-store-csi-driver-provider-openstack
+  template:
+    metadata:
+      labels:
+        app: secrets-store-csi-driver-provider-openstack
+    spec:
+      serviceAccountName: secrets-store-csi-driver-provider-openstack
+      hostNetwork: false
+      containers:
+        - name: provider
+          image: "debug-provider:latest"
+          imagePullPolicy: Never
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - SYS_PTRACE
+          volumeMounts:
+            - mountPath: "/etc/kubernetes/secrets-store-csi-providers"
+              name: providervol
+            - name: mountpoint-dir
+              mountPath: /var/lib/kubelet/pods
+              mountPropagation: HostToContainer
+            - mountPath: /source
+              name: driver-source-volume
+      volumes:
+        - name: providervol
+          hostPath:
+            path: "/etc/kubernetes/secrets-store-csi-providers"
+        - name: mountpoint-dir
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+        - name: driver-source-volume
+          persistentVolumeClaim:
+            claimName: driver-source-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-debug
+spec:
+  type: NodePort
+  selector:
+    app: secrets-store-csi-driver-provider-openstack
+  ports:
+  - name: debug
+    port: 30123
+    targetPort: 30123
+    nodePort: 30123

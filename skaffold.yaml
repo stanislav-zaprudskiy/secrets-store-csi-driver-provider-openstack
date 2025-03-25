@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2025 Stanislav Zaprudskiy <stanislav.zaprudskiy@gmail.com>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: skaffold/v4beta12
+kind: Config
+metadata:
+  name: secrets-store-csi-driver
+manifests:
+  helm:
+    releases:
+    # https://secrets-store-csi-driver.sigs.k8s.io/getting-started/installation
+    - name: secrets-store-csi-driver
+      repo: "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
+      remoteChart: secrets-store-csi-driver
+      wait: true
+deploy:
+  helm: {}
+
+---
+apiVersion: skaffold/v4beta12
+kind: Config
+metadata:
+  name: secrets-store-csi-driver-provider-openstack
+build:
+  tagPolicy:
+    sha256: {}
+  artifacts:
+  - image: debug-provider
+    context: ./
+    docker:
+      dockerfile: ./Dockerfile.debug
+
+manifests:
+  rawYaml:
+    - examples/debug-ds.yaml
+deploy:
+  kubectl: {}
+
+---
+apiVersion: skaffold/v4beta12
+kind: Config
+metadata:
+  name: demo-app
+build:
+  tagPolicy:
+    sha256: {}
+  artifacts:
+  - image: demo-app
+    context: ./examples/demo-app
+
+deploy:
+  helm:
+    releases:
+    - name: demo-app
+      chartPath: ./examples/demo-app/helm-charts/demo-app
+      wait: true
+      setValueTemplates:
+        osAuth:
+          OS_AUTH_TYPE:            "{{.OS_AUTH_TYPE}}"
+          OS_AUTH_URL:             "{{.OS_AUTH_URL}}"
+          OS_DOMAIN_NAME:          "{{.OS_DOMAIN_NAME}}"
+          OS_IDENTITY_API_VERSION: "{{.OS_IDENTITY_API_VERSION}}"
+          OS_PASSWORD:             "{{.OS_PASSWORD}}"
+          OS_PROJECT_DOMAIN_ID:    "{{.OS_PROJECT_DOMAIN_ID}}"
+          OS_PROJECT_NAME:         "{{.OS_PROJECT_NAME}}"
+          OS_REGION_NAME:          "{{.OS_REGION_NAME}}"
+          OS_USERNAME:             "{{.OS_USERNAME}}"
+          OS_USER_DOMAIN_ID:       "{{.OS_USER_DOMAIN_ID}}"

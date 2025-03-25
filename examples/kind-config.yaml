@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2025 Stanislav Zaprudskiy <stanislav.zaprudskiy@gmail.com>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30123 # node port for the delve server
+    hostPort: 30123 # port on your host machine to communicate with the delve server
+    protocol: TCP
+  extraMounts:
+  - hostPath: # TODO: path to the project repo
+    containerPath: /source # path to the project folder inside PV
