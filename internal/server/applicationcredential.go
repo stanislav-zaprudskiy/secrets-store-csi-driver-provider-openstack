@@ -19,14 +19,12 @@ import (
 
 const (
 	DefaultTemplate string = `clouds:
-{{- range $cloudName, $conf := .Clouds }}
-  {{ $cloudName }}:
+  secrets-store-csi:
     auth:
-      application_credential_id: "{{ $conf.AuthInfo.ApplicationCredentialID }}"
-      application_credential_secret: "{{ $conf.AuthInfo.ApplicationCredentialSecret }}"
-      auth_url: "{{ $conf.AuthInfo.AuthURL }}"
-    auth_type: "{{ $conf.AuthType }}"
-{{- end }}
+      application_credential_id: "{{ .AuthInfo.ApplicationCredentialID }}"
+      application_credential_secret: "{{ .AuthInfo.ApplicationCredentialSecret }}"
+      auth_url: "{{ .AuthInfo.AuthURL }}"
+    auth_type: "{{ .AuthType }}"
 `
 )
 
@@ -62,34 +60,28 @@ func randomSuffix(length int) string {
 }
 
 func (o ApplicationCredentialObject) Render(applicationCredential *applicationcredentials.ApplicationCredential, serviceClient *gophercloud.ServiceClient) ([]byte, error) {
-	cloudsConfig := newCloudsConfig(applicationCredential, serviceClient)
+	cloudsConfig := newCloudConfig(applicationCredential, serviceClient)
 	return o.executeTemplate(cloudsConfig)
 }
 
-func (o ApplicationCredentialObject) executeTemplate(cloudsConfig *Clouds) ([]byte, error) {
+func (o ApplicationCredentialObject) executeTemplate(cloudConfig *Cloud) ([]byte, error) {
 	tmpl := DefaultTemplate
 	if o.Template != nil {
 		tmpl = *o.Template
 	}
-	var contents []byte
 
 	t, err := template.New("template").Parse(tmpl)
 	if err != nil {
-		return contents, err
+		return []byte{}, err
 	}
 
 	var buf bytes.Buffer
-	err = t.Execute(&buf, cloudsConfig)
+	err = t.Execute(&buf, cloudConfig)
 	if err != nil {
-		return contents, err
+		return []byte{}, err
 	}
-	contents = buf.Bytes()
 
-	return contents, nil
-}
-
-type Clouds struct {
-	Clouds map[string]Cloud
+	return buf.Bytes(), nil
 }
 
 type Cloud struct {
@@ -110,11 +102,8 @@ type AuthInfo struct {
 	ApplicationCredentialName   string
 }
 
-func newCloudsConfig(applicationCredential *applicationcredentials.ApplicationCredential, identityClient *gophercloud.ServiceClient) *Clouds {
-	clouds := Clouds{
-		Clouds: make(map[string]Cloud),
-	}
-	clouds.Clouds["secrets-store-csi"] = Cloud{
+func newCloudConfig(applicationCredential *applicationcredentials.ApplicationCredential, identityClient *gophercloud.ServiceClient) *Cloud {
+	return &Cloud{
 		AuthType: AuthV3ApplicationCredential,
 		AuthInfo: AuthInfo{
 			ApplicationCredentialID:     applicationCredential.ID,
@@ -123,5 +112,4 @@ func newCloudsConfig(applicationCredential *applicationcredentials.ApplicationCr
 			AuthURL:                     identityClient.ResourceBaseURL(),
 		},
 	}
-	return &clouds
 }
