@@ -53,6 +53,14 @@ func (s *CSIDriverProviderServer) Mount(ctx context.Context, req *v1alpha1.Mount
 	if attributes == nil {
 		return nil, fmt.Errorf("attributes should not be nil")
 	}
+	// Attributes example:
+	// 0 = applicationCredentials -> - fileName: secure-clouds.yaml
+	// 1 = csi.storage.k8s.io/ephemeral -> true
+	// 2 = csi.storage.k8s.io/pod.name -> demo-app-7dc68c4b7f-sjc6l
+	// 3 = csi.storage.k8s.io/pod.namespace -> default
+	// 4 = csi.storage.k8s.io/pod.uid -> f64099e3-1962-4078-b995-8f0f2f04b33f
+	// 5 = csi.storage.k8s.io/serviceAccount.name -> default
+	// 6 = secretProviderClass -> my-openstack
 
 	// secrets is the Secret content referenced in nodePublishSecretRef Secret data
 	if req.GetSecrets() == "" {
